@@ -1,75 +1,70 @@
 "use client";
 
 import React, { useState } from "react";
-import TeamInput from "./TeamInput"; // Importa o componente para entrada de nomes dos times
-import RoundDisplay from "./RoundDisplay"; // Importa o componente para exibir as fases do torneio
-import ChampionDisplay from "./ChampionDisplay"; // Importa o componente para exibir o campeão
-import TournamentControls from "./TournamentControls"; // Importa o componente para os controles do torneio
+import TeamInput from "./TeamInput";
+import RoundDisplay from "./RoundDisplay";
+import ChampionDisplay from "./ChampionDisplay";
+import TournamentControls from "./TournamentControls";
+import { signOut } from "firebase/auth";
+import { auth } from "../firebaseConfig";
 
-const ChampionshipManager: React.FC = () => {
-  // Estados para gerenciar os dados do torneio
-  const [teams, setTeams] = useState<string[]>(Array(16).fill("")); // Lista de nomes dos times
-  const [rounds, setRounds] = useState<string[][][]>([]); // Lista de fases do torneio
-  const [selectedWinners, setSelectedWinners] = useState<string[]>([]); // Lista de vencedores selecionados
-  const [isTournamentStarted, setIsTournamentStarted] = useState(false); // Indica se o torneio começou
-  const [champion, setChampion] = useState<string | null>(null); // Nome do time campeão
-  const [isTournamentFinished, setIsTournamentFinished] = useState(false); // Indica se o torneio terminou
+interface ChampionshipManagerProps {
+  onBackToDashboard: () => void;
+  championshipId?: string;
+}
 
-  // Função para iniciar o torneio
+const ChampionshipManager: React.FC<ChampionshipManagerProps> = ({ onBackToDashboard, championshipId }) => {
+  const [teams, setTeams] = useState<string[]>(Array(16).fill(""));
+  const [rounds, setRounds] = useState<string[][][]>([]);
+  const [selectedWinners, setSelectedWinners] = useState<string[]>([]);
+  const [isTournamentStarted, setIsTournamentStarted] = useState(false);
+  const [champion, setChampion] = useState<string | null>(null);
+  const [isTournamentFinished, setIsTournamentFinished] = useState(false);
+
   const startTournament = () => {
-    // Verifica se todos os nomes dos times foram inseridos
     if (teams.some((team) => team === "")) {
       alert("Por favor, insira todos os nomes dos times.");
       return;
     }
 
-    // Embaralha os times e cria a primeira fase do torneio
     const shuffledTeams = shuffleArray(teams);
     const initialRound = chunkArray(shuffledTeams, 2);
     setRounds([initialRound]);
     setIsTournamentStarted(true);
   };
 
-  // Função para embaralhar um array
   const shuffleArray = (array: string[]) => [...array].sort(() => Math.random() - 0.5);
 
-  // Função para dividir um array em grupos de um determinado tamanho
   const chunkArray = (array: string[], size: number) => {
     const result = [];
     for (let i = 0; i < array.length; i += size) {
-      result.push(array.slice(i, i + size));
+      result.push(array.slice(i + 0, i + size));
     }
     return result;
   };
 
-  // Função para avançar para a próxima fase do torneio
   const advanceRound = () => {
-    // Verifica se todos os vencedores foram selecionados
     if (selectedWinners.length !== rounds[rounds.length - 1].length) {
       alert(`Escolha um vencedor para cada duelo antes de avançar.`);
       return;
     }
 
-    // Cria a próxima fase do torneio e atualiza o estado
     const nextRound = chunkArray(selectedWinners, 2);
     setRounds([...rounds, nextRound]);
     setSelectedWinners([]);
 
-    // Verifica se o torneio terminou
     if (nextRound.length === 1 && nextRound[0].length === 1) {
       setChampion(nextRound[0][0]);
       setIsTournamentFinished(true);
     }
   };
 
-  // Função para selecionar o vencedor de um duelo
   const selectWinner = (winner: string, duel: string[]) => {
     const updatedWinners = selectedWinners.filter((team) => !duel.includes(team));
     updatedWinners.push(winner);
     setSelectedWinners(updatedWinners);
   };
 
-  // Função para reiniciar o torneio
   const resetTournament = () => {
     setTeams(Array(16).fill(""));
     setRounds([]);
@@ -79,15 +74,14 @@ const ChampionshipManager: React.FC = () => {
     setIsTournamentFinished(false);
   };
 
-  // Array com os nomes das fases do torneio
   const roundNames = ["Oitavas de Final", "Quartas de Final", "Semifinais", "Final"];
 
-  // Renderização do componente
   return (
     <div className="p-8 bg-gray-900 min-h-screen text-white flex flex-col items-center">
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-blue-400">Gerenciador de Campeonato</h1>
+      <h1 className="text-4xl font-extrabold mb-8 text-center text-blue-400">
+        Gerenciador de Campeonato
+      </h1>
 
-      {/* Exibe o componente TeamInput se o torneio não começou e não terminou */}
       {!isTournamentStarted && !isTournamentFinished && (
         <div className="w-full max-w-lg bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700">
           <TeamInput teams={teams} setTeams={setTeams} />
@@ -97,10 +91,18 @@ const ChampionshipManager: React.FC = () => {
           >
             Iniciar Torneio
           </button>
+
+          {/* Botão de logout */}
+           <button
+        onClick={onBackToDashboard}
+        className="mt-8 px-6 py-3 bg-blue-700 text-white font-semibold rounded hover:bg-blue-800"
+      >
+        Voltar para o Dashboard
+      </button>
+       <h2>Gerenciando Campeonato: {championshipId ?? "Nenhum selecionado"}</h2>
         </div>
       )}
 
-      {/* Exibe o componente RoundDisplay se o torneio começou e há fases para exibir */}
       {isTournamentStarted && rounds.length > 0 && (
         <RoundDisplay
           rounds={rounds}
@@ -110,12 +112,10 @@ const ChampionshipManager: React.FC = () => {
         />
       )}
 
-      {/* Exibe o componente TournamentControls se o torneio começou e não terminou */}
       {isTournamentStarted && !isTournamentFinished && (
         <TournamentControls advanceRound={advanceRound} />
       )}
 
-      {/* Exibe o componente ChampionDisplay se o torneio terminou e há um campeão */}
       {isTournamentFinished && champion && (
         <ChampionDisplay champion={champion} resetTournament={resetTournament} />
       )}
