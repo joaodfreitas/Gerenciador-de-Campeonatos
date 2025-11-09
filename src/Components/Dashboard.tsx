@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { signOut, User } from "firebase/auth";
 import { auth } from "../firebaseConfig";
+import { ChampionshipFactory } from "../factories/ChampionshipFactory"
+
 
 interface DashboardProps {
   user: User;
@@ -33,16 +35,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onSelectManager }) => {
   }, [championships]);
 
   const handleCreateChampionship = () => {
-    if (!name.trim()) return;
-    const newChampionship: Championship = {
-      id: Date.now().toString(),
-      name,
-      date,
-    };
-    setChampionships((prev) => [...prev, newChampionship]);
-    setName("");
-    setDate("");
-  };
+  if (!name.trim()) return;
+  const newChampionship = ChampionshipFactory.create(name, date);
+  setChampionships((prev) => [...prev, newChampionship]);
+  setName("");
+  setDate("");
+};
 
   const handleDeleteChampionship = (id: string) => {
     if (confirm("Deseja realmente excluir este campeonato?")) {

@@ -5,6 +5,8 @@ import TeamInput from "./TeamInput";
 import RoundDisplay from "./RoundDisplay";
 import ChampionDisplay from "./ChampionDisplay";
 import TournamentControls from "./TournamentControls";
+import { WinnerStrategy, ManualWinnerStrategy, RandomWinnerStrategy } from "../strategies/WinnerStrategy"
+import { ChampionSubject, ChampionNotifier } from "../observers/ChampionObserver";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebaseConfig";
 
@@ -20,6 +22,10 @@ const ChampionshipManager: React.FC<ChampionshipManagerProps> = ({ onBackToDashb
   const [isTournamentStarted, setIsTournamentStarted] = useState(false);
   const [champion, setChampion] = useState<string | null>(null);
   const [isTournamentFinished, setIsTournamentFinished] = useState(false);
+  const [winnerStrategy, setWinnerStrategy] = useState<WinnerStrategy>(new ManualWinnerStrategy());
+
+  const championSubject = new ChampionSubject();
+championSubject.addObserver(new ChampionNotifier());
 
   const startTournament = () => {
     if (teams.some((team) => team === "")) {
@@ -44,20 +50,28 @@ const ChampionshipManager: React.FC<ChampionshipManagerProps> = ({ onBackToDashb
   };
 
   const advanceRound = () => {
-    if (selectedWinners.length !== rounds[rounds.length - 1].length) {
-      alert(`Escolha um vencedor para cada duelo antes de avançar.`);
-      return;
-    }
+  let nextWinners = selectedWinners;
 
-    const nextRound = chunkArray(selectedWinners, 2);
-    setRounds([...rounds, nextRound]);
-    setSelectedWinners([]);
+  // se o usuário não escolher manualmente, usa estratégia automática
+  if (nextWinners.length === 0) {
+    nextWinners = rounds[rounds.length - 1].map((duel) => winnerStrategy.selectWinner(duel));
+  }
 
-    if (nextRound.length === 1 && nextRound[0].length === 1) {
-      setChampion(nextRound[0][0]);
-      setIsTournamentFinished(true);
-    }
-  };
+  if (nextWinners.length !== rounds[rounds.length - 1].length) {
+    alert(`Escolha um vencedor para cada duelo antes de avançar.`);
+    return;
+  }
+
+  const nextRound = chunkArray(nextWinners, 2);
+  setRounds([...rounds, nextRound]);
+  setSelectedWinners([]);
+
+  if (nextRound.length === 1 && nextRound[0].length === 1) {
+    setChampion(nextRound[0][0]);
+    setIsTournamentFinished(true);
+    championSubject.notify(nextRound[0][0]);
+  }
+};
 
   const selectWinner = (winner: string, duel: string[]) => {
     const updatedWinners = selectedWinners.filter((team) => !duel.includes(team));
@@ -102,6 +116,21 @@ const ChampionshipManager: React.FC<ChampionshipManagerProps> = ({ onBackToDashb
        <h2>Gerenciando Campeonato: {championshipId ?? "Nenhum selecionado"}</h2>
         </div>
       )}
+
+<div className="flex gap-4 mt-4">
+  <button
+    onClick={() => setWinnerStrategy(new ManualWinnerStrategy())}
+    className="bg-blue-700 px-4 py-2 rounded"
+  >
+    Modo Manual
+  </button>
+  <button
+    onClick={() => setWinnerStrategy(new RandomWinnerStrategy())}
+    className="bg-green-700 px-4 py-2 rounded"
+  >
+    Modo Aleatório
+  </button>
+</div>
 
       {isTournamentStarted && rounds.length > 0 && (
         <RoundDisplay
